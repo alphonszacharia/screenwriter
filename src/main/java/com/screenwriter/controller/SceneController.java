@@ -95,4 +95,20 @@ public class SceneController {
                 new SceneResponse(scene)
         );
     }
+    @DeleteMapping("/{sceneId}")
+    public ResponseEntity<Void> deleteScene(
+            @PathVariable Long projectId,
+            @PathVariable Long sceneId,
+            Authentication authentication) {
+
+        String username = authentication.getName();
+
+        sceneService.deleteScene(
+                projectId,
+                sceneId,
+                username
+        );
+
+        return ResponseEntity.noContent().build();
+    }
 }

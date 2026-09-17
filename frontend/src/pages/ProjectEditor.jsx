@@ -1120,7 +1120,42 @@ function ProjectEditor() {
     };
 
 
+    const handleDeleteScene = async (scene) => {
+        if (!scene?.id) {
+            return;
+        }
 
+        const confirmed = window.confirm(
+            `Delete Scene ${scene.sceneOrder}: "${scene.sceneName}"?\n\n` +
+            "This will also delete the scene content. " +
+            "The remaining scenes will be renumbered automatically."
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            const response = await authFetch(
+                `http://localhost:8080/api/projects/${id}/scenes/${scene.id}`,
+                {
+                    method: "DELETE",
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error("Unable to delete scene.");
+            }
+
+            // Reload the project so the backend's new scene numbers
+            // are reflected immediately in the UI.
+            window.location.reload();
+
+        } catch (error) {
+            console.error("Delete scene error:", error);
+            alert(error.message || "Unable to delete scene.");
+        }
+    };
 
 // --------------------------------------------------
 // SAVE SCENE
@@ -1616,6 +1651,10 @@ function ProjectEditor() {
                                 <div className="scene-card-simple">
                                     <div className="scene-card-title">
                                         <span className="scene-number">Scene {scene.sceneOrder}</span>
+
+                                    </div>
+
+                                    <div>
                                         <h3>{scene.sceneName}</h3>
                                     </div>
 
@@ -1624,10 +1663,17 @@ function ProjectEditor() {
                                         className="open-button"
                                         onClick={() => openScene(scene)}
                                     >
-                                        Open Scene
+                                        Edit Scene
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        className="delete-scene-button"
+                                        onClick={() => handleDeleteScene(scene)}
+                                    >
+                                        Delete Scene
                                     </button>
                                 </div>
-
                             </article>
 
                         ))}

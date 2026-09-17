@@ -5,9 +5,11 @@ import com.screenwriter.entity.Character;
 import com.screenwriter.entity.Project;
 import com.screenwriter.entity.Scene;
 import com.screenwriter.repository.CharacterRepository;
+import com.screenwriter.repository.SceneContentRepository;
 import com.screenwriter.repository.ProjectRepository;
 import com.screenwriter.repository.SceneRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -19,15 +21,18 @@ public class SceneService {
     private final SceneRepository sceneRepository;
     private final ProjectRepository projectRepository;
     private final CharacterRepository characterRepository;
+    private final SceneContentRepository sceneContentRepository;
 
     public SceneService(
             SceneRepository sceneRepository,
             ProjectRepository projectRepository,
-            CharacterRepository characterRepository) {
+            CharacterRepository characterRepository,
+            SceneContentRepository sceneContentRepository) {
 
         this.sceneRepository = sceneRepository;
         this.projectRepository = projectRepository;
         this.characterRepository = characterRepository;
+        this.sceneContentRepository = sceneContentRepository;
     }
 
     public Scene createScene(
@@ -127,4 +132,52 @@ public class SceneService {
                 .orElseThrow(() ->
                         new RuntimeException("Scene not found"));
     }
+
+    @Transactional
+    public void deleteScene(
+            Long projectId,
+            Long sceneId,
+            String username) {
+
+        // Verify that the project belongs to the logged-in user.
+        Project project = projectRepository
+                .findByIdAndUserUsername(projectId, username)
+                .orElseThrow(() ->
+                        new RuntimeException("Project not found"));
+
+        // Find the scene inside this project.
+        Scene scene = sceneRepository
+                .findByIdAndProjectId(sceneId, projectId)
+                .orElseThrow(() ->
+                        new RuntimeException("Scene not found"));
+
+        // Remove the scene's content first so no orphaned dialogue/action
+        // records remain after the scene is deleted.
+        List<com.screenwriter.entity.SceneContent> contents =
+                sceneContentRepository
+                        .findBySceneIdOrderByContentOrder(sceneId);
+
+        if (!contents.isEmpty()) {
+            sceneContentRepository.deleteAll(contents);
+        }
+
+        // Delete the scene itself.
+        sceneRepository.delete(scene);
+
+        // Renumber all remaining scenes sequentially:
+        // 1, 2, 3, 4 -> delete 2 -> 1, 2, 3
+        List<Scene> remainingScenes =
+                sceneRepository
+                        .findByProjectIdOrderBySceneOrder(projectId);
+
+        int order = 1;
+
+        for (Scene remainingScene : remainingScenes) {
+            remainingScene.setSceneOrder(order++);
+            remainingScene.setUpdatedAt(LocalDateTime.now());
+        }
+
+        sceneRepository.saveAll(remainingScenes);
+    }
+
 }
