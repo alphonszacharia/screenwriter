@@ -1,5 +1,7 @@
 package com.screenwriter.controller;
 
+import com.screenwriter.dto.LoginRequest;
+import com.screenwriter.dto.LoginResponse;
 import com.screenwriter.dto.RegisterRequest;
 import com.screenwriter.dto.UserResponse;
 import com.screenwriter.entity.User;
@@ -32,6 +34,36 @@ public class UserController {
                 user.getCreatedAt()
         );
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(
+            @Valid @RequestBody LoginRequest request) {
+
+        String token = userService.loginUser(request);
+
+        User user = userService
+                .findByUsername(request.getUsername());
+
+        LoginResponse response = new LoginResponse(
+                user.getId(),
+                user.getUsername(),
+                token
+        );
+
+        return ResponseEntity.ok(response);
+    }
+    @GetMapping("/profile")
+    public ResponseEntity<String> profile(
+            org.springframework.security.core.Authentication authentication) {
+
+        String username = authentication.getName();
+
+        return ResponseEntity.ok(
+                "Welcome " + username + "! You are authenticated."
+        );
     }
 }

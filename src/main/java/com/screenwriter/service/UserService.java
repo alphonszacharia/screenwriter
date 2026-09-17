@@ -3,19 +3,27 @@ package com.screenwriter.service;
 import com.screenwriter.dto.LoginRequest;
 import com.screenwriter.dto.RegisterRequest;
 import com.screenwriter.entity.User;
+import com.screenwriter.exception.InvalidCredentialsException;
 import com.screenwriter.repository.UserRepository;
+import com.screenwriter.security.JwtService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import org.springframework.security.crypto.password.PasswordEncoder;
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
-    private final BCryptPasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(
+            UserRepository userRepository,
+            JwtService jwtService,
+            PasswordEncoder passwordEncoder) {
+
         this.userRepository = userRepository;
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        this.jwtService = jwtService;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public User registerUser(RegisterRequest request) {
@@ -40,12 +48,14 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public User loginUser(LoginRequest request) {
+    public String loginUser(LoginRequest request) {
 
         User user = userRepository
                 .findByUsername(request.getUsername())
                 .orElseThrow(() ->
-                        new RuntimeException("Invalid username or password"));
+                        new InvalidCredentialsException(
+                                "Invalid username or password"
+                        ));
 
         boolean passwordMatches = passwordEncoder.matches(
                 request.getPassword(),
@@ -53,9 +63,20 @@ public class UserService {
         );
 
         if (!passwordMatches) {
-            throw new RuntimeException("Invalid username or password");
+            throw new InvalidCredentialsException(
+                    "Invalid username or password"
+            );
         }
 
-        return user;
+        return jwtService.generateToken(user.getUsername());
+    }
+    public User findByUsername(String username) {
+
+        return userRepository
+                .findByUsername(username)
+                .orElseThrow(() ->
+                        new InvalidCredentialsException(
+                                "User not found"
+                        ));
     }
 }
